@@ -1,0 +1,57 @@
+{
+  "name": "apprentice",
+  "displayName": "apprentice",
+  "description": "A self-improving coding apprentice in a VS Code panel — bring your own model (OpenAI-compatible / local / frontier).",
+  "version": "0.1.0",
+  "publisher": "apprentice",
+  "license": "MIT",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["AI", "Programming Languages", "Other"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "apprentice", "title": "apprentice", "icon": "media/icon.svg" }
+      ]
+    },
+    "views": {
+      "apprentice": [
+        { "id": "apprentice.chat", "name": "apprentice", "type": "webview" }
+      ]
+    },
+    "commands": [
+      { "command": "apprentice.openPanel", "title": "apprentice: Open Panel" },
+      { "command": "apprentice.editSelection", "title": "apprentice: Edit Selection" }
+    ],
+    "keybindings": [
+      { "command": "apprentice.openPanel", "key": "ctrl+alt+a", "mac": "cmd+alt+a" }
+    ],
+    "configuration": {
+      "title": "apprentice",
+      "properties": {
+        "apprentice.apiUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1/chat/completions",
+          "description": "OpenAI-compatible chat completions endpoint (OpenAI, local llama.cpp/vLLM, OpenRouter, ...)."
+        },
+        "apprentice.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key (Bearer). Leave empty for local servers that don't require one."
+        },
+        "apprentice.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "Model id to send to the endpoint."
+        },
+        "apprentice.codeRagUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional apprentice code-RAG service URL (POST /code/search). Empty = disable semantic code_search tool."
+        }
+      }
+    }
+  },
+  "scripts": { "compile": "tsc -p ./", "watch": "tsc -watch -p ./" },
+  "devDependencies": { "typescript": "^5.4.0", "@types/vscode": "^1.80.0", "@types/node": "^20.0.0" }
+}

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# apprentice artifacts (indexes, logs, models — never commit)
+*.npz
+*.index
+index_meta.json
+corrections.jsonl
+*.gguf
+*.safetensors
+adapters/
+.apprentice/
+
+# secrets / local config
+.env
+.env.*
+!.env.example
+
+# Node / VS Code extension build
+node_modules/
+extension/out/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
