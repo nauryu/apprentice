@@ -3,6 +3,10 @@ import sys
 
 
 def main():
+    try:                       # robust UTF-8 output on Windows consoles (cp949 etc.)
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     a = sys.argv[1:]
     if not a:
         print("usage: apprentice [index <roots...> | search <q> | ask <q> | "
