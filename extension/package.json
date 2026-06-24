@@ -29,6 +29,12 @@
     "configuration": {
       "title": "apprentice",
       "properties": {
+        "apprentice.backend": {
+          "type": "string",
+          "enum": ["openai", "claude-cli"],
+          "default": "openai",
+          "description": "Brain backend. 'openai' = any OpenAI-compatible endpoint (BYO key). 'claude-cli' = your logged-in Claude account via `claude -p` (no API key; requires the Claude Code CLI)."
+        },
         "apprentice.apiUrl": {
           "type": "string",
           "default": "https://api.openai.com/v1/chat/completions",

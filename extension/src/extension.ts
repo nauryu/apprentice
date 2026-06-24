@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec } from 'child_process';
+import * as os from 'os';
+import { exec, spawn } from 'child_process';
 
 // ── config (bring your own model) ──────────────────────────────────
 function cfg<T>(k: string, d: T): T {
@@ -37,6 +38,39 @@ async function llmStream(messages: Msg[], onChunk: (s: string) => void): Promise
     }
   }
   return full;
+}
+
+// ── Claude CLI backend (Claude account as brain — no API key) ──────
+// Runs `claude -p` as a clean chat function: tools disabled, user memory skipped,
+// neutral cwd, and the whole prompt (incl. system instruction) via stdin so it
+// behaves as a stateless responder instead of a full agent.
+const NO_TOOLS = 'Bash Edit Write Read Glob Grep WebSearch WebFetch Task TodoWrite NotebookEdit';
+function claudeCli(messages: Msg[]): Promise<string> {
+  let sys = ''; const parts: string[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') { sys += (sys ? '\n\n' : '') + m.content; }
+    else if (m.role === 'user') { parts.push(m.content); }
+    else { parts.push(`[assistant]\n${m.content}`); }
+  }
+  const stdin = (sys ? `SYSTEM:\n${sys}\n\n` : '') + parts.join('\n\n');
+  const args = ['-p', '--setting-sources', '', '--disallowedTools', NO_TOOLS];
+  return new Promise((resolve, reject) => {
+    const p = spawn('claude', args, { cwd: os.tmpdir(), shell: process.platform === 'win32' });
+    let out = '', err = '';
+    p.stdout.on('data', (d) => { out += d.toString(); });
+    p.stderr.on('data', (d) => { err += d.toString(); });
+    p.on('error', reject);
+    p.on('close', () => { const t = out.trim(); if (t) { resolve(t); } else { reject(new Error(err.slice(0, 300) || 'claude-cli: empty output')); } });
+    p.stdin.write(stdin); p.stdin.end();
+  });
+}
+
+// dispatch: claude-cli (non-streaming) or OpenAI-compatible HTTP (streaming)
+async function llmCall(messages: Msg[], onChunk: (s: string) => void): Promise<string> {
+  if (cfg<string>('backend', 'openai') === 'claude-cli') {
+    const r = await claudeCli(messages); onChunk(r); return r;
+  }
+  return llmStream(messages, onChunk);
 }
 
 // ── workspace context ──────────────────────────────────────────────
@@ -189,7 +223,7 @@ class ChatSession {
       if (messages.length > 16) { messages.splice(1, messages.length - 13); }
       this.post({ type: 'think-start' });
       let raw = '';
-      try { raw = await llmStream(messages, (c) => this.post({ type: 'chunk', text: c })); }
+      try { raw = await llmCall(messages, (c) => this.post({ type: 'chunk', text: c })); }
       catch (e: any) { this.post({ type: 'tool', text: `[error] ${e.message}` }); return; }
       this.post({ type: 'think-end' });
       const act = parseAction(raw);

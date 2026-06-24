@@ -58,10 +58,13 @@ Four composable pieces, each usable on its own:
 ```bash
 pip install -e .
 
-# point at any OpenAI-compatible endpoint
+# Brain option A — any OpenAI-compatible endpoint (bring your own key)
 export APPRENTICE_LLM_BASE_URL="https://api.openai.com/v1"     # or http://localhost:8080/v1 (llama.cpp)
 export APPRENTICE_LLM_API_KEY="sk-..."
 export APPRENTICE_LLM_MODEL="gpt-4o-mini"
+
+# Brain option B — your logged-in Claude account, NO API key (needs the Claude Code CLI)
+export APPRENTICE_LLM_BACKEND="claude-cli"
 
 # dogfood: index THIS repo (no private code, fully reproducible)
 apprentice index .
@@ -72,6 +75,11 @@ apprentice search "where is the chunking logic"
 # grounded answer
 apprentice ask "how does the eval harness avoid position bias?"
 ```
+
+**In VS Code:** build the panel (`cd extension && npm install && npm run compile`), open the
+folder in VS Code, press `F5` (Extension Development Host), and set `apprentice.backend` +
+endpoint in Settings. The panel reads files, searches your code, and edits with diff-approval —
+driven by your chosen brain (including `claude-cli` for a frontier brain with no API key).
 
 No private code ships with this repo — the demo indexes the project itself.
 

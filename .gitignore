@@ -23,6 +23,10 @@ adapters/
 .env.*
 !.env.example
 
+# scratch (brain intents etc.)
+_brain_*.json
+_scratch*
+
 # Node / VS Code extension build
 node_modules/
 extension/out/
