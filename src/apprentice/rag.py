@@ -118,11 +118,16 @@ def search(query, k=6):
     return [(float(sims[i]), meta[i]) for i in np.argsort(-sims)[:k]]
 
 
-def ask(query, k=6, model=None):
+def ask(query, k=6, model=None, use_lessons=True):
     hits = search(query, k)
     ctx = "\n\n".join(f"[{m['file']}:{m['lineno']} — {m['name']}]\n{m['code']}" for _, m in hits)
     sys_p = ("You are a coding assistant. Answer using ONLY the [codebase] snippets below. "
              "If the answer isn't there, say so. Cite file:line. Reply in the user's language.")
+    if use_lessons:                       # self-improvement: inject relevant past corrections
+        from . import lessons             # lazy import (lessons imports rag)
+        block = lessons.as_prompt(query)
+        if block:
+            sys_p += "\n\n" + block
     msgs = [{"role": "system", "content": sys_p},
             {"role": "user", "content": f"[codebase]\n{ctx}\n\n[question]\n{query}"}]
     return llm.chat(msgs, model=model, temperature=0.2, max_tokens=700), hits

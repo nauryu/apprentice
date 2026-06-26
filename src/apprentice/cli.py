@@ -10,6 +10,7 @@ def main():
     a = sys.argv[1:]
     if not a:
         print("usage: apprentice [index <roots...> | search <q> | ask <q> | "
+              "learn <task> :: <correction> | lessons | "
               "eval <base.json> <cand.json> | dpo | sft]")
         return
     cmd = a[0]
@@ -27,6 +28,20 @@ def main():
         for s, m in hits:
             print(f"  [{s:.3f}] {m['file']}:{m['lineno']} — {m['name']}")
         print("\n--- answer ---\n" + ans)
+    elif cmd == "learn":
+        from . import lessons
+        rest = " ".join(a[1:])
+        if "::" not in rest:
+            print("usage: apprentice learn <task> :: <correct answer/guidance>")
+            return
+        task, right = (s.strip() for s in rest.split("::", 1))
+        lessons.correct(task, wrong="", right=right)
+    elif cmd == "lessons":
+        from . import lessons
+        meta = lessons._load_meta()
+        print(f"{len(meta)} lesson(s):")
+        for m in meta:
+            print(f"  - [{m['trigger'][:50]}] {m['lesson']}")
     elif cmd == "eval":
         from . import evalharness
         evalharness.compare(a[1], a[2], label_a="base", label_b="candidate")
