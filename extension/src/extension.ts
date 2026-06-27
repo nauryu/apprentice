@@ -206,15 +206,33 @@ const VAGUE = /(it depends on|depends on the (structure|setup)|구조에 따라|
 
 class ChatSession {
   history: Msg[] = [];
+  lastQuestion = '';
+  lastAnswer = '';
   constructor(public webview: vscode.Webview) {
     webview.options = { enableScripts: true };
     webview.html = html();
-    webview.onDidReceiveMessage((m) => { if (m.type === 'ask') { this.run(m.text); } });
+    webview.onDidReceiveMessage((m) => {
+      if (m.type === 'ask') { this.run(m.text); }
+      else if (m.type === 'correct') { this.saveCorrection(m.correction); }
+    });
   }
   post(m: any) { this.webview.postMessage(m); }
 
+  // Capture a correction for the self-improvement loop. The panel can't run the embedder, so it
+  // only records the raw correction; `apprentice digest` later distills it into a lesson.
+  saveCorrection(correction: string) {
+    try {
+      const dir = path.join(root(), '.apprentice');
+      fs.mkdirSync(dir, { recursive: true });
+      const rec = { ts: Math.floor(Date.now() / 1000), task: this.lastQuestion, answer: this.lastAnswer, correction };
+      fs.appendFileSync(path.join(dir, 'corrections.jsonl'), JSON.stringify(rec) + '\n', 'utf8');
+      this.post({ type: 'corrected' });
+    } catch (e: any) { this.post({ type: 'tool', text: `[correction failed] ${e.message}` }); }
+  }
+
   async run(text: string) {
     this.post({ type: 'user', text });
+    this.lastQuestion = text;
     const ctx = activeNote();
     const first = (ctx ? `${ctx}\n\n` : '') + `[task]\n${text}\n(workspace: ${root()})`;
     const messages: Msg[] = [{ role: 'system', content: SYSTEM }, ...this.history.slice(-12), { role: 'user', content: first }];
@@ -236,6 +254,7 @@ class ChatSession {
             { role: 'user', content: 'That is too generic. Do not guess — use the tools to find the real filename/path/value and answer concretely.' });
           continue;
         }
+        this.lastAnswer = msg;
         this.post({ type: 'final', text: msg });
         this.history.push({ role: 'user', content: text }, { role: 'assistant', content: msg });
         return;
@@ -273,7 +292,12 @@ function html(): string {
   .think{white-space:pre-wrap;color:var(--vscode-descriptionForeground);font-size:12px}
   .act{color:var(--vscode-charts-blue);font-size:12px;margin:4px 0}
   .tool{color:var(--vscode-descriptionForeground);font-size:11px;white-space:pre-wrap;border-left:2px solid var(--vscode-panel-border);padding-left:6px;margin:2px 0 8px}
-  .final{white-space:pre-wrap;margin:6px 0 12px;line-height:1.5}
+  .final{white-space:pre-wrap;margin:6px 0 2px;line-height:1.5}
+  .teach{margin:0 0 12px}
+  .tlink{color:var(--vscode-descriptionForeground);font-size:11px;text-decoration:none;cursor:pointer}
+  .tbox{display:none;margin-top:4px}
+  .tinput{width:100%;box-sizing:border-box;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:6px;padding:5px;font-family:inherit;resize:none}
+  .tnote{color:var(--vscode-charts-green);font-size:11px}
   #bar{display:flex;gap:6px;margin-top:6px}
   #q{flex:1;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:6px;padding:6px;resize:none;font-family:inherit}
   button{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border:0;border-radius:6px;padding:6px 12px;cursor:pointer}
@@ -286,6 +310,18 @@ function html(): string {
   function send(){const t=q.value.trim();if(!t)return;q.value='';vs.postMessage({type:'ask',text:t});}
   document.getElementById('send').onclick=send;
   q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+  let lastTeach=null;
+  function teach(){
+    const w=document.createElement('div');w.className='teach';
+    const link=document.createElement('a');link.className='tlink';link.textContent='👎 wrong? teach it';
+    const box=document.createElement('div');box.className='tbox';
+    const ta=document.createElement('textarea');ta.className='tinput';ta.rows=2;ta.placeholder='the correct answer / what it should remember next time';
+    const send=document.createElement('button');send.textContent='Teach';
+    box.appendChild(ta);box.appendChild(send);w.appendChild(link);w.appendChild(box);
+    link.onclick=()=>{box.style.display='block';ta.focus();};
+    send.onclick=()=>{const c=ta.value.trim();if(!c)return;vs.postMessage({type:'correct',correction:c});box.innerHTML='<span class=tnote>saved — run \`apprentice digest\` to turn it into a lesson</span>';};
+    log.appendChild(w);log.scrollTop=log.scrollHeight;return w;
+  }
   window.addEventListener('message',e=>{const m=e.data;
     if(m.type==='user')add('u','> '+m.text);
     else if(m.type==='think-start')cur=add('think','');
@@ -293,7 +329,8 @@ function html(): string {
     else if(m.type==='think-end')cur=null;
     else if(m.type==='act')add('act','▶ '+m.text);
     else if(m.type==='tool')add('tool',m.text);
-    else if(m.type==='final')add('final','✅ '+m.text);
+    else if(m.type==='final'){add('final','✅ '+m.text);lastTeach=teach();}
+    else if(m.type==='corrected'&&lastTeach){const n=lastTeach.querySelector('.tnote');if(n)n.textContent='✓ saved — run \`apprentice digest\` to learn it';}
   });
   </script></body></html>`;
 }

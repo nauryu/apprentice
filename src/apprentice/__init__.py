@@ -1,2 +1,3 @@
-"""apprentice — a self-improving local coding apprentice, supervised by a frontier model."""
+"""apprentice — a self-improving coding apprentice with a frontier brain that learns from
+corrections by remembering them (lessons), not by retraining."""
 __version__ = "0.1.0"

@@ -1,19 +1,16 @@
 [project]
 name = "apprentice"
 version = "0.1.0"
-description = "A self-improving local coding apprentice — supervised by a frontier model, kept honest by a reproducible eval harness."
+description = "A self-improving coding apprentice with a frontier brain — learns from corrections by remembering them (no retraining), kept honest by a reproducible eval harness."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Ryu Yong Gun" }]
-keywords = ["llm", "rag", "code-search", "eval", "self-improvement", "local-llm"]
+keywords = ["llm", "rag", "code-search", "eval", "self-improvement", "lessons"]
 dependencies = [
     "numpy>=1.24",
     "sentence-transformers>=3.0",
 ]
-
-[project.optional-dependencies]
-train = ["torch", "transformers", "peft", "datasets"]   # GPU self-improvement step
 
 [project.scripts]
 apprentice = "apprentice.cli:main"

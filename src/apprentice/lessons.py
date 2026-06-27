@@ -23,6 +23,7 @@ STORE = rag.STORE                                          # .apprentice/ (share
 LOG = os.path.join(STORE, "lessons.jsonl")                # durable record of every lesson
 IDX = os.path.join(STORE, "lessons_index.npz")            # embeddings of lesson triggers
 META = os.path.join(STORE, "lessons_meta.json")           # lesson rows aligned to IDX
+PENDING = os.path.join(STORE, "corrections.jsonl")        # raw corrections captured (e.g. by the panel)
 # bge-m3 baseline similarity runs high (~0.45 even for unrelated coding text), so the gate is
 # deliberately strict — only inject a lesson that's clearly on-topic, never pollute every answer.
 MIN_SIM = float(os.environ.get("APPRENTICE_LESSON_MIN_SIM", "0.60"))
@@ -77,6 +78,31 @@ def correct(task, wrong, right):
     """Learn from one mistake: distill the correction, then store it as a lesson."""
     d = distill(task, wrong, right)
     return add_lesson(d["trigger"], d["lesson"])
+
+
+def record_correction(task, answer, correction):
+    """Append a raw correction for later digestion. Cheap, no model — safe to call from the
+    panel (Node) which can't run the embedder. Turn these into lessons later with `digest`."""
+    os.makedirs(STORE, exist_ok=True)
+    rec = {"ts": int(time.time()), "task": task, "answer": answer, "correction": correction}
+    with open(PENDING, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return rec
+
+
+def digest(path=None):
+    """Drain captured corrections into distilled lessons. The embedder/brain run here, not
+    in the panel — capture is cheap, digestion is batched."""
+    path = path or PENDING
+    if not os.path.exists(path):
+        print("[lessons] no pending corrections")
+        return 0
+    rows = [json.loads(x) for x in open(path, encoding="utf-8") if x.strip()]
+    for r in rows:
+        correct(r["task"], r.get("answer", ""), r["correction"])
+    open(path, "w", encoding="utf-8").close()              # clear only after all are digested
+    print(f"[lessons] digested {len(rows)} correction(s) into lessons")
+    return len(rows)
 
 
 def retrieve(query, k=3, min_sim=MIN_SIM):
