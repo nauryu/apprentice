@@ -119,10 +119,12 @@ def retrieve(query, k=3, min_sim=MIN_SIM):
 
 
 def as_prompt(query, k=3):
-    """Render relevant lessons as a system-prompt block, or '' if none apply."""
+    """Relevant lessons as an authoritative [project knowledge] block for the *user* message, or ''.
+    Injecting them in the user message (not a soft system note) is what makes the model actually
+    apply them — a weak system-prompt mention gets ignored next to the code context."""
     hits = retrieve(query, k)
     if not hits:
         return ""
     body = "\n".join(f"- {m['lesson']}" for _, m in hits)
-    return ("Lessons from past corrections on this codebase -- apply any that are relevant:\n"
-            + body)
+    return ("[project knowledge -- learned from past corrections; authoritative for conventions and "
+            "facts not in the code below]\n" + body)
