@@ -11,7 +11,8 @@ def main():
     if not a:
         print("usage: apprentice [index <roots...> | search <q> | ask <q> | "
               "gen <questions.json> <out.json> [--no-lessons] | "
-              "learn <task> :: <correction> | lessons | digest | eval <base.json> <cand.json>]")
+              "learn <task> :: <correction> | lessons | digest | "
+              "eval <base.json> <cand.json> | acc <answers.json>]")
         return
     cmd = a[0]
     if cmd == "index":
@@ -61,6 +62,9 @@ def main():
     elif cmd == "eval":
         from . import evalharness
         evalharness.compare(a[1], a[2], label_a="base", label_b="candidate")
+    elif cmd == "acc":
+        from . import evalharness
+        evalharness.accuracy(a[1], label=a[1])
     else:
         print("unknown command:", cmd)
 

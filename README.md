@@ -92,13 +92,19 @@ The point isn't "it feels smarter" — it's a number you can reproduce on your o
 apprentice gen questions.json no_lessons.json --no-lessons
 apprentice gen questions.json with_lessons.json
 
-# blind pairwise judge — does the lessons-on set actually win?
+# blind pairwise judge — does the lessons-on set win overall?
 apprentice eval no_lessons.json with_lessons.json
+
+# fact accuracy (when questions carry a "gold" fact) — did each answer get it right?
+apprentice acc no_lessons.json      # e.g. correct 0/4
+apprentice acc with_lessons.json    # e.g. correct 4/4
 ```
 
-`questions.json` is a list of `{"id","q", optional "gold","cat"}`. The eval judges each pair in
-**both orders** and only counts a win if the verdict is consistent — no position bias. The
-win-rate *is* the demo.
+`questions.json` is a list of `{"id","q", optional "gold","cat"}`. `eval` judges each pair in
+**both orders** and only counts a win if the verdict is consistent — no position bias. For
+convention/knowledge questions, `acc` is the cleaner signal: pairwise judging underweights
+factual specificity, so a correct-but-specific answer often reads as a "tie". The numbers *are*
+the demo — reproduce them on your own questions and lessons.
 
 ## What makes it different (honest positioning)
 

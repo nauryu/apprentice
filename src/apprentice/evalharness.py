@@ -55,3 +55,40 @@ def compare(file_a, file_b, judge_model=None, label_a="A", label_b="B"):
         b = bycat[c]
         print(f"  {c:12s}: {label_a} {b['a']:2d} / {label_b} {b['b']:2d} / tie {b['tie']:2d}")
     return tot, rows
+
+
+# ── fact-accuracy: does each answer state its reference fact? ────────────────
+# Pairwise "which is better" underweights factual specificity — for knowledge injection,
+# scoring each answer against its gold fact is the cleaner, more honest signal.
+ACC = ("You check whether an answer correctly conveys a reference fact. Given a question, a "
+       "reference fact, and an answer, reply with exactly one token: 'yes' if the answer states or "
+       "agrees with the reference fact, or 'no' if it omits it, is vague, or contradicts it.")
+
+
+def _acc_once(q, gold, a, model):
+    msg = [{"role": "system", "content": ACC},
+           {"role": "user", "content": f"[question]\n{q}\n\n[reference fact]\n{gold}\n\n[answer]\n{a}\n\nCorrect (yes/no):"}]
+    return 1 if llm.chat(msg, model=model, temperature=0.0, max_tokens=4).strip().lower().startswith("y") else 0
+
+
+def accuracy(file_x, judge_model=None, label="answers"):
+    """Per-answer fact accuracy vs each item's `gold`. Items without a gold are skipped."""
+    X = json.load(open(file_x, encoding="utf-8"))
+    n = correct = 0
+    bycat = defaultdict(lambda: [0, 0])
+    for o in X:
+        gold = o.get("gold")
+        if not gold:
+            continue
+        v = _acc_once(o.get("q", ""), gold, o["a"], judge_model)
+        n += 1
+        correct += v
+        c = o.get("cat", "-")
+        bycat[c][0] += v
+        bycat[c][1] += 1
+    print(f"=== fact accuracy: {label} ===")
+    print(f"correct {correct}/{n}" + (f"  ({100*correct/n:.0f}%)" if n else "  (no gold-labeled items)"))
+    for c in sorted(bycat):
+        cc, ct = bycat[c]
+        print(f"  {c:12s}: {cc}/{ct}")
+    return correct, n
