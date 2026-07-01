@@ -11,7 +11,7 @@ def main():
     if not a:
         print("usage: apprentice [index <roots...> | search <q> | ask <q> | "
               "gen <questions.json> <out.json> [--no-lessons] | "
-              "learn <task> :: <correction> | reflect <q> | lessons | digest | "
+              "learn <task> :: <correction> | reflect <q> | lessons | digest | prune [days] | audit | "
               "eval <base.json> <cand.json> | acc <answers.json> | serve [port]]")
         return
     cmd = a[0]
@@ -49,6 +49,12 @@ def main():
     elif cmd == "digest":
         from . import lessons
         lessons.digest()        # turn panel-captured corrections into lessons
+    elif cmd == "prune":
+        from . import lessons
+        lessons.prune(int(a[1]) if len(a) > 1 else None)   # dedup + optional age drop
+    elif cmd == "audit":
+        from . import lessons
+        lessons.audit()         # flag overlapping/conflicting lessons to review
     elif cmd == "gen":
         # generate an answer set over a question file, for the lessons-on vs -off eval
         import json

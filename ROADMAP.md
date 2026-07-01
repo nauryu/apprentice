@@ -21,7 +21,8 @@
   → store only verified fixes, tagged `source=self`. No gate, no self-improvement.
 - [ ] Incremental re-indexing on file change.
 - [ ] Retrieval-quality eval (recall@k) for both code and lessons.
-- [ ] Lesson hygiene at scale: dedup, conflict resolution, staleness/decay.
+- [x] Lesson hygiene: dedup on add + `prune` (collapse near-duplicates, optional age drop) +
+  `audit` (flag overlapping/conflicting lessons for review).
 
 ## Non-goals
 

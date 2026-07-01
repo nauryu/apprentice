@@ -27,6 +27,8 @@ PENDING = os.path.join(STORE, "corrections.jsonl")        # raw corrections capt
 # bge-m3 baseline similarity runs high (~0.45 even for unrelated coding text), so the gate is
 # deliberately strict — only inject a lesson that's clearly on-topic, never pollute every answer.
 MIN_SIM = float(os.environ.get("APPRENTICE_LESSON_MIN_SIM", "0.60"))
+# two triggers this close are treated as the same lesson (skip on add, collapse on prune)
+DEDUP_SIM = float(os.environ.get("APPRENTICE_LESSON_DEDUP_SIM", "0.93"))
 
 _DISTILL = (
     "You turn a single coding Q&A correction into ONE short, reusable lesson for a coding "
@@ -72,23 +74,74 @@ def distill(task, wrong, right):
 
 
 def add_lesson(trigger, lesson, source="user"):
-    """Persist a lesson and (incrementally) index its trigger for retrieval.
-    `source` ('user' | 'self') marks who proposed it, so self-lessons can be audited/rolled back."""
+    """Persist a lesson and (incrementally) index its trigger for retrieval. Near-duplicates are
+    skipped (hygiene). `source` ('user' | 'self') marks who proposed it, for audit/rollback."""
     import numpy as np
     os.makedirs(STORE, exist_ok=True)
+    vec = rag._embedder().encode([trigger], normalize_embeddings=True).astype("float32")
+    meta = _load_meta()
+    emb = np.load(IDX)["emb"] if os.path.exists(IDX) else None
+    if emb is not None and emb.shape[0] and float((emb @ vec[0]).max()) >= DEDUP_SIM:
+        print(f"[lessons] near-duplicate -- skipped: {lesson[:70]}")
+        return None
     rec = {"id": f"L{int(time.time()*1000)}", "ts": int(time.time()),
            "trigger": trigger, "lesson": lesson, "source": source}
     with open(LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-
-    meta = _load_meta()
     meta.append(rec)
-    vec = rag._embedder().encode([trigger], normalize_embeddings=True).astype("float32")
-    emb = np.vstack([np.load(IDX)["emb"], vec]) if os.path.exists(IDX) else vec
+    emb = np.vstack([emb, vec]) if emb is not None else vec
     np.savez(IDX, emb=emb)
     json.dump(meta, open(META, "w", encoding="utf-8"), ensure_ascii=False)
     print(f"[lessons] learned ({len(meta)} total): {lesson[:80]}")
     return rec
+
+
+def prune(max_age_days=None):
+    """Hygiene: collapse near-duplicate lessons (keep the earliest) and optionally drop ones older
+    than `max_age_days`. Rewrites the store. User-invoked and reports exactly what it removes."""
+    import numpy as np
+    meta = _load_meta()
+    if not meta or not os.path.exists(IDX):
+        print("[lessons] nothing to prune")
+        return 0
+    emb = np.load(IDX)["emb"]
+    now = int(time.time())
+    keep = []
+    for i, m in enumerate(meta):
+        if max_age_days and (now - m.get("ts", now)) > max_age_days * 86400:
+            continue
+        if any(float(emb[i] @ emb[j]) >= DEDUP_SIM for j in keep):
+            continue
+        keep.append(i)
+    removed = len(meta) - len(keep)
+    meta2 = [meta[i] for i in keep]
+    emb2 = emb[keep] if keep else np.zeros((0, emb.shape[1]), dtype="float32")
+    np.savez(IDX, emb=emb2)
+    json.dump(meta2, open(META, "w", encoding="utf-8"), ensure_ascii=False)
+    with open(LOG, "w", encoding="utf-8") as f:
+        for m in meta2:
+            f.write(json.dumps(m, ensure_ascii=False) + "\n")
+    print(f"[lessons] pruned {removed} (kept {len(meta2)})")
+    return removed
+
+
+def audit(sim=0.75):
+    """Read-only: flag pairs of lessons with similar triggers — candidates for overlap/conflict to
+    review. Deliberately does not auto-resolve; contradictions are for a human to judge."""
+    import numpy as np
+    meta = _load_meta()
+    if not meta or not os.path.exists(IDX):
+        print("[lessons] no lessons")
+        return []
+    emb = np.load(IDX)["emb"]
+    pairs = sorted(((float(emb[i] @ emb[j]), i, j)
+                    for i in range(len(meta)) for j in range(i + 1, len(meta))
+                    if float(emb[i] @ emb[j]) >= sim), reverse=True)
+    print(f"[lessons] {len(pairs)} overlapping pair(s) (trigger sim >= {sim}) to review:")
+    for s, i, j in pairs:
+        print(f"  {s:.2f}  ({meta[i].get('source', '?')}) {meta[i]['lesson'][:55]}")
+        print(f"        ({meta[j].get('source', '?')}) {meta[j]['lesson'][:55]}")
+    return pairs
 
 
 def correct(task, wrong, right, source="user"):
@@ -123,7 +176,7 @@ def reflect(task, answer=None, k=6):
                                                    f"[correct information]\n{proposed}"}],
                       temperature=0.0, max_tokens=150, backend=CRITIC_BACKEND).strip()
     rec = add_lesson(task.strip()[:160], lesson, source="self")
-    print("[reflect] verified self-lesson stored")
+    print("[reflect] verified self-lesson stored" if rec else "[reflect] verified, but duplicate -- skipped")
     return rec
 
 
