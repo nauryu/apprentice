@@ -67,8 +67,10 @@ def _openai(messages, model, temperature, max_tokens, timeout) -> str:
     return r["choices"][0]["message"]["content"].strip()
 
 
-def chat(messages, model=None, temperature=0.2, max_tokens=800, timeout=240):
-    backend = _env("APPRENTICE_LLM_BACKEND", "openai").lower()
+def chat(messages, model=None, temperature=0.2, max_tokens=800, timeout=240, backend=None):
+    # `backend` overrides the env default — lets the apprentice run on one model while the
+    # critic/verifier (self-critique) runs on a frontier brain.
+    backend = (backend or _env("APPRENTICE_LLM_BACKEND", "openai")).lower()
     if backend in ("claude-cli", "claude"):
         return _claude_cli(messages, timeout)
     return _openai(messages, model, temperature, max_tokens, timeout)

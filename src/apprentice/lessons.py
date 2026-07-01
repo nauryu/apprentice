@@ -35,6 +35,22 @@ _DISTILL = (
     "TRIGGER: <the kind of question/situation this applies to, one short line>\n"
     "LESSON: <the concrete thing to remember, one or two sentences>")
 
+# self-critique runs on a frontier brain (defaults to your Claude account, no API key)
+CRITIC_BACKEND = os.environ.get("APPRENTICE_CRITIC_BACKEND", "claude-cli")
+_CRITIC = ("You review a coding assistant's answer for factual errors or missing key facts. "
+           "If it is correct and complete, reply with exactly: PASS\n"
+           "Otherwise reply with 'FIX:' followed by the corrected answer itself — state the correct "
+           "answer directly, as you would answer the question, NOT a critique of the old answer "
+           "(no 'the answer is wrong', no meta-commentary). Flag only real errors, not style.")
+_VERIFY = ("You are a strict fact-checker guarding a knowledge base from bad entries. Given a "
+           "question, the original answer, and a proposed correction, decide whether the correction "
+           "is BOTH factually correct AND a genuine improvement over the original. Reply with exactly "
+           "one token: yes or no. If you are not confident, reply no.")
+_SELF_LESSON = ("Given a question, a wrong answer, and the correct information, write ONE reusable "
+                "lesson (one or two sentences) that states the correct fact or rule so a coding "
+                "assistant won't repeat the mistake. Output only the lesson sentence — no preamble, "
+                "no 'the answer was wrong', no meta-commentary.")
+
 
 def _load_meta():
     return json.load(open(META, encoding="utf-8")) if os.path.exists(META) else []
@@ -55,12 +71,13 @@ def distill(task, wrong, right):
     return {"trigger": trigger, "lesson": lesson}
 
 
-def add_lesson(trigger, lesson):
-    """Persist a lesson and (incrementally) index its trigger for retrieval."""
+def add_lesson(trigger, lesson, source="user"):
+    """Persist a lesson and (incrementally) index its trigger for retrieval.
+    `source` ('user' | 'self') marks who proposed it, so self-lessons can be audited/rolled back."""
     import numpy as np
     os.makedirs(STORE, exist_ok=True)
     rec = {"id": f"L{int(time.time()*1000)}", "ts": int(time.time()),
-           "trigger": trigger, "lesson": lesson}
+           "trigger": trigger, "lesson": lesson, "source": source}
     with open(LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
@@ -74,10 +91,40 @@ def add_lesson(trigger, lesson):
     return rec
 
 
-def correct(task, wrong, right):
+def correct(task, wrong, right, source="user"):
     """Learn from one mistake: distill the correction, then store it as a lesson."""
     d = distill(task, wrong, right)
-    return add_lesson(d["trigger"], d["lesson"])
+    return add_lesson(d["trigger"], d["lesson"], source=source)
+
+
+def reflect(task, answer=None, k=6):
+    """Self-critique: the assistant reviews its own answer and, only if an INDEPENDENT verifier
+    confirms the fix is correct and better, stores it as a self-lesson. The verify gate is what
+    keeps a hallucinated 'correction' from poisoning the store — no gate, no self-improvement."""
+    from . import rag
+    if answer is None:
+        answer, _ = rag.ask(task, k=k, use_lessons=True)
+    crit = llm.chat([{"role": "system", "content": _CRITIC},
+                     {"role": "user", "content": f"[question]\n{task}\n\n[answer]\n{answer}"}],
+                    temperature=0.0, max_tokens=700, backend=CRITIC_BACKEND).strip()
+    if crit.upper().startswith("PASS"):
+        print("[reflect] PASS -- answer looks correct, no self-lesson")
+        return {"verdict": "pass", "task": task}
+    proposed = crit[4:].strip() if crit[:4].upper() == "FIX:" else crit.strip()
+    ok = llm.chat([{"role": "system", "content": _VERIFY},
+                   {"role": "user", "content": f"[question]\n{task}\n\n[original answer]\n{answer}\n\n"
+                                               f"[proposed correction]\n{proposed}\n\nCorrect and better (yes/no):"}],
+                  temperature=0.0, max_tokens=4, backend=CRITIC_BACKEND).strip().lower().startswith("y")
+    if not ok:
+        print("[reflect] proposed correction NOT verified -- discarded (conservative)")
+        return {"verdict": "rejected", "task": task, "proposed": proposed}
+    lesson = llm.chat([{"role": "system", "content": _SELF_LESSON},
+                       {"role": "user", "content": f"[question]\n{task}\n\n[wrong answer]\n{answer}\n\n"
+                                                   f"[correct information]\n{proposed}"}],
+                      temperature=0.0, max_tokens=150, backend=CRITIC_BACKEND).strip()
+    rec = add_lesson(task.strip()[:160], lesson, source="self")
+    print("[reflect] verified self-lesson stored")
+    return rec
 
 
 def record_correction(task, answer, correction):

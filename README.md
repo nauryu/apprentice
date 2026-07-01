@@ -72,7 +72,10 @@ apprentice ask "how does the eval harness avoid position bias?"
 # teach it from a mistake — it distills a reusable lesson and remembers it
 apprentice learn handling file paths in this project :: always build paths from the workspace root with abs()/os.path.join, never os.getcwd()
 
-# what has it learned?
+# or let it teach itself: critique an answer, and store the fix only if an independent verifier confirms it
+apprentice reflect "how does the eval harness avoid position bias?"
+
+# what has it learned? (each lesson is tagged user or self)
 apprentice lessons
 ```
 

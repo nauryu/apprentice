@@ -17,7 +17,8 @@
 - [x] Panel hook: thumbs-down a wrong answer → capture the correction → `digest` into a lesson.
 - [x] Local retrieval service (`apprentice serve`) for `/lessons/search` + `/code/search`; the panel
   injects retrieved lessons at query time via `apprentice.lessonsUrl`.
-- [ ] Self-critique source for lessons (a verify pass proposes corrections, not just the user).
+- [x] Self-critique source for lessons (`apprentice reflect`): critique → independent verify gate
+  → store only verified fixes, tagged `source=self`. No gate, no self-improvement.
 - [ ] Incremental re-indexing on file change.
 - [ ] Retrieval-quality eval (recall@k) for both code and lessons.
 - [ ] Lesson hygiene at scale: dedup, conflict resolution, staleness/decay.

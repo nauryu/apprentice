@@ -11,7 +11,7 @@ def main():
     if not a:
         print("usage: apprentice [index <roots...> | search <q> | ask <q> | "
               "gen <questions.json> <out.json> [--no-lessons] | "
-              "learn <task> :: <correction> | lessons | digest | "
+              "learn <task> :: <correction> | reflect <q> | lessons | digest | "
               "eval <base.json> <cand.json> | acc <answers.json> | serve [port]]")
         return
     cmd = a[0]
@@ -37,12 +37,15 @@ def main():
             return
         task, right = (s.strip() for s in rest.split("::", 1))
         lessons.correct(task, wrong="", right=right)
+    elif cmd == "reflect":
+        from . import lessons
+        lessons.reflect(" ".join(a[1:]))
     elif cmd == "lessons":
         from . import lessons
         meta = lessons._load_meta()
         print(f"{len(meta)} lesson(s):")
         for m in meta:
-            print(f"  - [{m['trigger'][:50]}] {m['lesson']}")
+            print(f"  - ({m.get('source', 'user')}) [{m['trigger'][:46]}] {m['lesson']}")
     elif cmd == "digest":
         from . import lessons
         lessons.digest()        # turn panel-captured corrections into lessons
