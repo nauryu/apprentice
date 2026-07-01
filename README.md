@@ -81,6 +81,18 @@ folder in VS Code, press `F5` (Extension Development Host), and set `apprentice.
 Settings (use `claude-cli` for a frontier brain with no API key). The panel reads files,
 searches your code, and edits with diff-approval.
 
+**Panel self-improvement** (so the panel actually uses lessons): run the local retrieval service
+and point the panel at it —
+
+```bash
+apprentice serve                 # http://127.0.0.1:8799  (/lessons/search, /code/search)
+```
+
+then set `apprentice.lessonsUrl` = `http://127.0.0.1:8799/lessons/search` (and optionally
+`apprentice.codeRagUrl` = `http://127.0.0.1:8799/code/search`). Now every panel question pulls
+relevant lessons and injects them; the "👎 wrong? teach it" button captures corrections that
+`apprentice digest` turns into new lessons. If the service isn't running, the panel just skips it.
+
 No private code ships with this repo — the demo indexes the project itself.
 
 ## Does it actually improve? (the eval)

@@ -230,11 +230,25 @@ class ChatSession {
     } catch (e: any) { this.post({ type: 'tool', text: `[correction failed] ${e.message}` }); }
   }
 
+  // Self-improvement at query time: pull relevant lessons from the local service and inject them
+  // as an authoritative [project knowledge] block (the injection that measured 0/4 -> 4/4 accuracy).
+  async fetchLessons(query: string): Promise<string> {
+    const url = cfg('lessonsUrl', '');
+    if (!url) { return ''; }
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, k: 3 }) });
+      if (!r.ok) { return ''; }
+      return ((await r.json()) as any).knowledge || '';
+    } catch { return ''; }
+  }
+
   async run(text: string) {
     this.post({ type: 'user', text });
     this.lastQuestion = text;
     const ctx = activeNote();
-    const first = (ctx ? `${ctx}\n\n` : '') + `[task]\n${text}\n(workspace: ${root()})`;
+    const know = await this.fetchLessons(text);
+    if (know) { this.post({ type: 'tool', text: '[applied project lessons]' }); }
+    const first = (know ? `${know}\n\n` : '') + (ctx ? `${ctx}\n\n` : '') + `[task]\n${text}\n(workspace: ${root()})`;
     const messages: Msg[] = [{ role: 'system', content: SYSTEM }, ...this.history.slice(-12), { role: 'user', content: first }];
     let investigated = 0, nudged = false;
     for (let step = 0; step < MAX_STEPS; step++) {

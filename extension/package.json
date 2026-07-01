@@ -53,7 +53,12 @@
         "apprentice.codeRagUrl": {
           "type": "string",
           "default": "",
-          "description": "Optional apprentice code-RAG service URL (POST /code/search). Empty = disable semantic code_search tool."
+          "description": "Optional apprentice code-RAG service URL (POST /code/search). Empty = disable semantic code_search tool. Run `apprentice serve` to provide it (default http://127.0.0.1:8799/code/search)."
+        },
+        "apprentice.lessonsUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional apprentice lessons service URL (POST /lessons/search). Empty = no self-improvement injection. Run `apprentice serve` to provide it (default http://127.0.0.1:8799/lessons/search)."
         }
       }
     }

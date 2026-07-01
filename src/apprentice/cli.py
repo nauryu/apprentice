@@ -12,7 +12,7 @@ def main():
         print("usage: apprentice [index <roots...> | search <q> | ask <q> | "
               "gen <questions.json> <out.json> [--no-lessons] | "
               "learn <task> :: <correction> | lessons | digest | "
-              "eval <base.json> <cand.json> | acc <answers.json>]")
+              "eval <base.json> <cand.json> | acc <answers.json> | serve [port]]")
         return
     cmd = a[0]
     if cmd == "index":
@@ -65,6 +65,9 @@ def main():
     elif cmd == "acc":
         from . import evalharness
         evalharness.accuracy(a[1], label=a[1])
+    elif cmd == "serve":
+        from . import server
+        server.serve(int(a[1]) if len(a) > 1 else 8799)
     else:
         print("unknown command:", cmd)
 

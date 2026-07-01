@@ -12,13 +12,15 @@
 
 ## Next
 
-- [ ] `gen` + eval recipe for **lessons-on vs lessons-off** win-rate (the "did it improve?" number).
-- [ ] Panel hook: thumbs-down a wrong answer → capture the correction → distill into a lesson.
-- [ ] Serve lessons retrieval to the panel (a small local service the panel can query, alongside
-  `code_search`).
+- [x] `gen` + eval recipe for **lessons-on vs lessons-off**, plus `acc` fact-accuracy (measured
+  0/4 → 4/4 on a controlled knowledge set after fixing lesson injection).
+- [x] Panel hook: thumbs-down a wrong answer → capture the correction → `digest` into a lesson.
+- [x] Local retrieval service (`apprentice serve`) for `/lessons/search` + `/code/search`; the panel
+  injects retrieved lessons at query time via `apprentice.lessonsUrl`.
 - [ ] Self-critique source for lessons (a verify pass proposes corrections, not just the user).
 - [ ] Incremental re-indexing on file change.
 - [ ] Retrieval-quality eval (recall@k) for both code and lessons.
+- [ ] Lesson hygiene at scale: dedup, conflict resolution, staleness/decay.
 
 ## Non-goals
 
